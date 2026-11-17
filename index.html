@@ -99,6 +99,12 @@ button,input,select{font:inherit;color:inherit}
 .tick{width:72px;height:72px;border-radius:50%;background:var(--in-soft);display:grid;place-items:center}
 .tick::after{content:"";width:26px;height:14px;border-left:5px solid var(--in);border-bottom:5px solid var(--in);transform:rotate(-45deg) translate(2px,-3px)}
 .tick.b{background:var(--brk-soft)} .tick.b::after{border-color:var(--brk)}
+.loc{display:inline-flex;align-items:center;gap:5px;margin-left:10px;color:var(--accent);font-weight:600}
+.loc::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--in)}
+.place h2{font-size:19px}
+.place-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.switch{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14px;cursor:pointer}
+.switch input{width:18px;height:18px;accent-color:var(--accent)}
 .kfoot{text-align:center}
 .kfoot a{color:var(--muted);font-size:13px;text-decoration:none;padding:6px 10px;border-radius:8px}
 .kfoot a:hover{background:var(--soft)}
@@ -203,10 +209,20 @@ td .pill{margin:0}
 <div class="kiosk" id="kiosk" hidden>
   <div class="kiosk-head">
     <div class="brand"><span class="mark" aria-hidden="true"></span><div><h1>Clockline</h1><p>Staff time clock</p></div></div>
-    <div class="clockbox"><div class="clock" data-clock>--:--</div><div class="datestr" data-date></div></div>
+    <div class="clockbox"><div class="clock" data-clock>--:--</div><div class="datestr"><span data-date></span><span class="loc" id="k-loc" hidden></span></div></div>
   </div>
   <main class="kiosk-main">
-    <section class="kcard" id="k-pin" aria-label="Enter your PIN">
+    <section class="kcard" id="k-setup" hidden aria-label="Set up this device">
+      <h2>Set up this device</h2>
+      <p class="sub" id="k-setup-msg">Staff can only clock in on a device a manager has set up. Do this once on the shop computer.</p>
+      <form id="k-setup-form" class="stack">
+        <div class="field"><label for="su-loc">Location</label><input class="input" id="su-loc" autocomplete="off" placeholder="e.g. Andorra"></div>
+        <div class="field"><label for="su-pass">Location password</label><input class="input" id="su-pass" type="password" autocomplete="off"></div>
+        <p class="err" id="k-setup-err"></p>
+        <button class="btn primary" type="submit" id="su-btn">Set up this device</button>
+      </form>
+    </section>
+    <section class="kcard" id="k-pin" hidden aria-label="Enter your PIN">
       <h2>Enter your PIN</h2>
       <div class="dots" id="k-dots" aria-live="polite"></div>
       <p class="err" id="k-err" style="text-align:center"></p>
@@ -261,6 +277,7 @@ td .pill{margin:0}
       <button class="tab" role="tab" id="tab-now" data-tab="now">Now</button>
       <button class="tab" role="tab" id="tab-reports" data-tab="reports">Reports</button>
       <button class="tab" role="tab" id="tab-team" data-tab="team">Team &amp; PINs</button>
+      <button class="tab" role="tab" id="tab-locations" data-tab="locations">Locations</button>
       <button class="tab" role="tab" id="tab-settings" data-tab="settings">Settings</button>
     </nav>
     <div class="stats" id="stats">
@@ -303,7 +320,7 @@ td .pill{margin:0}
     <div class="totals" id="r-totals"></div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Date</th><th>Employee</th><th>In</th><th>Out</th><th class="num">Breaks</th><th class="num">Worked</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Date</th><th>Employee</th><th>Location</th><th>In</th><th>Out</th><th class="num">Breaks</th><th class="num">Worked</th><th>Status</th><th></th></tr></thead>
         <tbody id="r-body"></tbody>
       </table>
     </div>
@@ -324,6 +341,20 @@ td .pill{margin:0}
     <div class="list" id="team-list"></div>
   </section>
 
+  <section id="view-locations" class="narrow" hidden>
+    <div id="loc-list" class="stack" style="margin-bottom:16px"></div>
+    <form class="panel stack" id="loc-form">
+      <h2 style="font-size:18px">Add a location</h2>
+      <div class="addform">
+        <div class="field"><label for="nl-name">Name</label><input class="input" id="nl-name" maxlength="40" autocomplete="off" placeholder="e.g. Main Street 1"></div>
+        <div class="field"><label for="nl-pass">Password</label><input class="input" id="nl-pass" type="password" autocomplete="new-password" placeholder="6+ characters"></div>
+        <div class="inline"><button class="btn primary" type="submit">Add</button></div>
+      </div>
+      <p class="err" id="nl-err"></p>
+      <p class="hint">The location password is only used to set up a shop device. Once the shop computer is set up, switch off "Allow new devices" so nobody can add a phone.</p>
+    </form>
+  </section>
+
   <section id="view-settings" class="narrow" hidden>
     <form class="panel stack" id="f-pass">
       <h2 style="font-size:18px">Admin password</h2>
@@ -335,7 +366,7 @@ td .pill{margin:0}
     </form>
     <div class="panel stack">
       <h2 style="font-size:18px">How the clock works</h2>
-      <p class="hint">Staff open the clock page, type their PIN and pick check in, break, back or check out. They never see hours, theirs or anyone else's. Every tap is stored with the server's time, so changing a device's clock doesn't change the record. Admin sign-in ends after 15 minutes without use.</p>
+      <p class="hint">Staff can only clock in on a shop device set up under Locations. On any other phone or computer the clock asks for a location password and shows no keypad. They type their PIN and pick check in, break, back or check out, and never see hours, theirs or anyone else's. Every tap is stored with the server's time and the shop it came from. Admin works from anywhere and signs out after 15 minutes without use.</p>
     </div>
   </section>
 </div>
@@ -442,22 +473,74 @@ td .pill{margin:0}
     }
     return null;
   }
-  const toEv = (e) => ({id: e.id, t: e.type, at: Date.parse(e.at), source: e.source || 'kiosk', staff_id: e.staff_id});
+  const toEv = (e) => ({id: e.id, t: e.type, at: Date.parse(e.at), source: e.source || 'kiosk', staff_id: e.staff_id, station_id: e.station_id || null});
 
   // =====================================================================
   // KIOSK
   // =====================================================================
   const kiosk = {pin: '', busy: false, ids: null, timer: null};
   const MAXPIN = 8;
+  const STATION_KEY = 'clockline.station', STATION_LOC_KEY = 'clockline.station.location';
+  const ls = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+    del(k) { try { localStorage.removeItem(k); } catch {} },
+  };
+  let station = ls.get(STATION_KEY);
   function kShow(which) {
-    ['k-pin', 'k-act', 'k-done'].forEach(id => { $('#' + id).hidden = id !== which; });
+    ['k-setup', 'k-pin', 'k-act', 'k-done'].forEach(id => { $('#' + id).hidden = id !== which; });
+  }
+  function showLoc() {
+    const name = ls.get(STATION_LOC_KEY);
+    $('#k-loc').textContent = name || '';
+    $('#k-loc').hidden = !(station && name);
   }
   function kReset() {
     clearTimeout(kiosk.timer);
     kiosk.pin = ''; kiosk.ids = null; kiosk.busy = false;
     $('#k-err').textContent = ''; $('#k-act-err').textContent = '';
-    kDots(); kShow('k-pin');
+    kDots(); showLoc();
+    kShow(station ? 'k-pin' : 'k-setup');
   }
+  function kSetup(msg) {
+    station = null; ls.del(STATION_KEY); ls.del(STATION_LOC_KEY);
+    $('#k-setup-msg').textContent = msg || 'Staff can only clock in on a device a manager has set up. Do this once on the shop computer.';
+    $('#k-setup-err').textContent = '';
+    kReset();
+  }
+  const REMOVED = 'This device was removed in admin, so it can’t be used for clocking in. Set it up again if that was a mistake.';
+  async function kCheckStation() {
+    if (!station) return;
+    const r = await rpc('clockline_station_check', {p_station: station});
+    if (r.ok) { ls.set(STATION_LOC_KEY, r.location); showLoc(); }
+    else if (r.error === 'station') kSetup(REMOVED);
+  }
+  function deviceLabel() {
+    const u = navigator.userAgent;
+    const os = /iPhone/.test(u) ? 'iPhone' : /iPad/.test(u) ? 'iPad' : /Android/.test(u) ? 'Android' : /Windows/.test(u) ? 'Windows' : /Mac OS X/.test(u) ? 'Mac' : /Linux|CrOS/.test(u) ? 'Linux' : 'Device';
+    const br = /Edg\//.test(u) ? 'Edge' : /Chrome\//.test(u) ? 'Chrome' : /Firefox\//.test(u) ? 'Firefox' : /Safari\//.test(u) ? 'Safari' : 'Browser';
+    return `${os} · ${br}`;
+  }
+  $('#k-setup-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = $('#k-setup-err'), btn = $('#su-btn');
+    err.textContent = '';
+    const loc = $('#su-loc').value.trim(), pass = $('#su-pass').value;
+    if (!loc || !pass) { err.textContent = 'Fill in the location and its password.'; return; }
+    btn.disabled = true;
+    const r = await rpc('clockline_station_register', {p_location: loc, p_password: pass, p_label: deviceLabel()});
+    btn.disabled = false;
+    if (!r.ok) {
+      err.textContent = r.error === 'bad_login' ? 'Wrong location or password.'
+        : r.error === 'closed' ? 'This location isn’t accepting new devices. The admin can allow them under Locations.'
+        : r.error === 'locked' ? 'Too many wrong attempts. Wait 15 minutes.' : NET;
+      return;
+    }
+    station = r.token; ls.set(STATION_KEY, r.token); ls.set(STATION_LOC_KEY, r.location);
+    $('#su-pass').value = ''; $('#su-loc').value = '';
+    kReset();
+    toast(`This device is now the ${r.location} clock`);
+  });
   function kDots() {
     const n = Math.max(4, kiosk.pin.length);
     $('#k-dots').replaceChildren(...Array.from({length: n}, (_, i) => h('span', {class: 'dot' + (i < kiosk.pin.length ? ' f' : '')})));
@@ -480,8 +563,9 @@ td .pill{margin:0}
   async function kSubmit() {
     if (kiosk.pin.length < 4) { kWrong('PINs have at least 4 digits.'); return; }
     kiosk.busy = true;
-    const r = await rpc('clockline_kiosk_identify', {p_pin: kiosk.pin});
+    const r = await rpc('clockline_kiosk_identify', {p_station: station, p_pin: kiosk.pin});
     kiosk.busy = false;
+    if (!r.ok && r.error === 'station') { kSetup(REMOVED); return; }
     if (!r.ok) {
       kWrong(r.error === 'bad_pin' ? 'That PIN isn’t recognised. Try again.' : r.error === 'locked' ? 'Too many wrong PINs. Wait 15 minutes, or ask the manager.' : NET);
       return;
@@ -500,8 +584,9 @@ td .pill{margin:0}
     if (kiosk.busy) return;
     kiosk.busy = true;
     $('#k-acts').querySelectorAll('button').forEach(b => { b.disabled = true; });
-    const r = await rpc('clockline_kiosk_clock', {p_pin: kiosk.pin, p_type: type});
+    const r = await rpc('clockline_kiosk_clock', {p_station: station, p_pin: kiosk.pin, p_type: type});
     kiosk.busy = false;
+    if (!r.ok && r.error === 'station') { kSetup(REMOVED); return; }
     if (!r.ok) {
       $('#k-acts').querySelectorAll('button').forEach(b => { b.disabled = false; });
       if (r.error === 'bad_state') { $('#k-act-err').textContent = 'That was already done. Start again.'; kIdle(3000); }
@@ -521,7 +606,8 @@ td .pill{margin:0}
   async function kUndo() {
     if (!kiosk.ids || kiosk.busy) return;
     kiosk.busy = true; $('#k-undo').disabled = true;
-    const r = await rpc('clockline_kiosk_undo', {p_pin: kiosk.pin, p_ids: kiosk.ids});
+    const r = await rpc('clockline_kiosk_undo', {p_station: station, p_pin: kiosk.pin, p_ids: kiosk.ids});
+    if (!r.ok && r.error === 'station') { kSetup(REMOVED); return; }
     kiosk.busy = false;
     $('#k-done-title').textContent = r.ok ? 'Undone' : 'Couldn’t undo';
     $('#k-done-sub').textContent = r.ok ? 'Nothing was recorded.' : (r.error === 'too_late' ? 'Too late to undo. Ask the manager to fix it.' : NET);
@@ -552,8 +638,14 @@ td .pill{margin:0}
   let token = ss.get(TOKEN_KEY);
   let lastActivity = Date.now();
   let tab = 'now';
-  let ov = {staff: [], events: [], loaded: false, offset: 0};
-  let report = {staff: [], events: [], loaded: false, loading: false, from: null, to: null, person: 'all', reqId: 0};
+  let ov = {staff: [], events: [], places: [], loaded: false, offset: 0};
+  let report = {staff: [], events: [], places: [], loaded: false, loading: false, from: null, to: null, person: 'all', reqId: 0};
+  function placeOf(stationId) {
+    if (!stationId) return '';
+    for (const p of [...report.places, ...ov.places]) if (p.stations.some(s => s.id === stationId)) return p.name;
+    return '';
+  }
+  const placesOf = (ev) => [...new Set(ev.map(e => placeOf(e.station_id)).filter(Boolean))].join(', ');
   let confirmRemove = null, confirmTimer = null, ovTimer = null;
   const today = () => dateKey(new Date(Date.now() + ov.offset));
   const nowMs = () => Date.now() + ov.offset;
@@ -599,7 +691,7 @@ td .pill{margin:0}
     $('#kiosk').hidden = true; $('#login').hidden = true; $('#admin').hidden = false;
     ov.loaded = false; goTab(tab);
     loadOverview();
-    clearInterval(ovTimer); ovTimer = setInterval(() => { if (tab === 'now' || tab === 'team') loadOverview(); }, 30000);
+    clearInterval(ovTimer); ovTimer = setInterval(() => { if (tab === 'now' || tab === 'team' || tab === 'locations') loadOverview(); }, 30000);
   }
   async function loadOverview() {
     if (!token) return;
@@ -607,12 +699,12 @@ td .pill{margin:0}
     if (!r.ok) { if (r.error === 'session') { sessionLost(); return; } showBanner('Not connected. Retrying…'); return; }
     showBanner('');
     ov.offset = Date.parse(r.now) - Date.now();
-    ov.staff = r.staff; ov.events = r.events.map(toEv); ov.loaded = true;
+    ov.staff = r.staff; ov.events = r.events.map(toEv); ov.places = r.places || []; ov.loaded = true;
     renderAdmin();
   }
   function goTab(t) {
     tab = t;
-    for (const x of ['now', 'reports', 'team', 'settings']) {
+    for (const x of ['now', 'reports', 'team', 'locations', 'settings']) {
       $('#view-' + x).hidden = x !== t;
       $('#tab-' + x).setAttribute('aria-selected', String(x === t));
     }
@@ -625,6 +717,7 @@ td .pill{margin:0}
     if (tab === 'now') renderNow();
     else if (tab === 'reports') renderReports();
     else if (tab === 'team') renderTeam();
+    else if (tab === 'locations') renderLocations();
   }
 
   // ---------- now ----------
@@ -643,8 +736,13 @@ td .pill{margin:0}
         counts[sum.state]++;
         let meta;
         if (sum.state === 'off') meta = ev.length ? h('p', {class: 'meta'}, `In ${fmtTime(sum.firstIn)} · out ${fmtTime(sum.lastOut)} · `, h('strong', {text: fmtDur(sum.work)})) : h('p', {class: 'meta', text: 'Not in yet today'});
-        else if (sum.state === 'in') meta = h('p', {class: 'meta'}, `In since ${fmtTime(sum.firstIn)} · `, h('strong', {text: fmtDur(sum.work)}), ' worked');
-        else meta = h('p', {class: 'meta'}, `On break since ${fmtTime(sum.since)} · `, h('strong', {text: fmtDur(sum.work)}), ' worked');
+        else {
+          const lastLoc = placeOf([...ev].reverse().find(e => e.station_id)?.station_id);
+          const at = lastLoc ? ` at ${lastLoc}` : '';
+          meta = sum.state === 'in'
+            ? h('p', {class: 'meta'}, `In since ${fmtTime(sum.firstIn)}${at} · `, h('strong', {text: fmtDur(sum.work)}), ' worked')
+            : h('p', {class: 'meta'}, `On break since ${fmtTime(sum.since)}${at} · `, h('strong', {text: fmtDur(sum.work)}), ' worked');
+        }
         out.push(h('article', {class: 'card s-' + sum.state},
           h('div', {class: 'card-top'},
             h('span', {class: 'avatar', 'aria-hidden': 'true', text: initials(s.name)}),
@@ -683,7 +781,7 @@ td .pill{margin:0}
       if (r.error === 'bad_range') { $('#r-note').textContent = 'Pick a range of up to 400 days.'; return; }
       adminErr(r); renderReports(); return;
     }
-    report.staff = r.staff; report.events = r.events.map(toEv); report.loaded = true;
+    report.staff = r.staff; report.events = r.events.map(toEv); report.places = r.places || []; report.loaded = true;
     renderReports();
   }
   function staffName(id) { const s = report.staff.find(x => x.id === id) || ov.staff.find(x => x.id === id); return s ? s.name : 'Unknown'; }
@@ -701,7 +799,7 @@ td .pill{margin:0}
       const sum = summarize(ev, date === t ? now : null);
       let status = 'Complete', cls = 'off';
       if (sum.state !== 'off') { if (date === t) { status = STATUS[sum.state]; cls = sum.state; } else { status = 'Not checked out'; cls = 'warn'; } }
-      rows.push({sid, date, name: staffName(sid), ev, sum, status, cls, edited: ev.some(e => e.source === 'manual')});
+      rows.push({sid, date, name: staffName(sid), ev, sum, status, cls, edited: ev.some(e => e.source === 'manual'), place: placesOf(ev)});
     }
     return rows;
   }
@@ -730,7 +828,7 @@ td .pill{margin:0}
     if (!report.from) { body.replaceChildren(); totalsBox.replaceChildren(); return; }
     const days = Math.round((keyToDate(report.to) - keyToDate(report.from)) / 864e5) + 1;
     $('#r-note').textContent = `${dayShort(report.from)} to ${dayShort(report.to)} · ${days} day${days === 1 ? '' : 's'} · ${personLabel()}`;
-    if (report.loading && !report.loaded) { body.replaceChildren(h('tr', null, h('td', {colspan: 8, class: 'dim', text: 'Loading…'}))); totalsBox.replaceChildren(); return; }
+    if (report.loading && !report.loaded) { body.replaceChildren(h('tr', null, h('td', {colspan: 9, class: 'dim', text: 'Loading…'}))); totalsBox.replaceChildren(); return; }
 
     const rows = reportRows().sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name));
     const totals = totalsOf(rows);
@@ -742,10 +840,11 @@ td .pill{margin:0}
       cards.unshift(h('div', {class: 'total all'}, h('span', {text: 'All staff'}), h('b', {text: fmtDur(all.work)}), h('small', {text: `${all.days} shifts · ${hoursNum(all.work).toFixed(2)} h`})));
     }
     totalsBox.replaceChildren(...cards);
-    if (!rows.length) { body.replaceChildren(h('tr', null, h('td', {colspan: 8, class: 'dim', text: 'No hours recorded in this period.'}))); return; }
+    if (!rows.length) { body.replaceChildren(h('tr', null, h('td', {colspan: 9, class: 'dim', text: 'No hours recorded in this period.'}))); return; }
     body.replaceChildren(...rows.map(r => h('tr', null,
       h('td', {text: dayShort(r.date)}),
       h('td', null, r.name, r.edited ? h('span', {class: 'tag', text: 'edited'}) : null),
+      h('td', {class: r.place ? '' : 'dim', text: r.place || '–'}),
       h('td', {text: r.sum.firstIn ? fmtTime(r.sum.firstIn) : '–'}),
       h('td', {text: r.sum.state === 'off' && r.sum.lastOut ? fmtTime(r.sum.lastOut) : '–'}),
       h('td', {class: 'num', text: r.sum.brk ? fmtDur(r.sum.brk) : '–'}),
@@ -839,15 +938,15 @@ td .pill{margin:0}
   function exportData() {
     const rows = reportRows().sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
     const totals = totalsOf(rows);
-    const daily = [['Date', 'Day', 'Employee', 'First in', 'Last out', 'Break (h:mm)', 'Worked (h:mm)', 'Worked (hours)', 'Status', 'Edited by admin']];
-    for (const r of rows) daily.push([r.date, dayName(r.date), r.name, r.sum.firstIn ? fmtTime(r.sum.firstIn) : '', r.sum.state === 'off' && r.sum.lastOut ? fmtTime(r.sum.lastOut) : '', fmtHM(r.sum.brk), fmtHM(r.sum.work), hoursNum(r.sum.work), r.status, r.edited ? 'Yes' : '']);
+    const daily = [['Date', 'Day', 'Employee', 'Location', 'First in', 'Last out', 'Break (h:mm)', 'Worked (h:mm)', 'Worked (hours)', 'Status', 'Edited by admin']];
+    for (const r of rows) daily.push([r.date, dayName(r.date), r.name, r.place, r.sum.firstIn ? fmtTime(r.sum.firstIn) : '', r.sum.state === 'off' && r.sum.lastOut ? fmtTime(r.sum.lastOut) : '', fmtHM(r.sum.brk), fmtHM(r.sum.work), hoursNum(r.sum.work), r.status, r.edited ? 'Yes' : '']);
     const tot = [['Employee', 'Days worked', 'Worked (h:mm)', 'Worked (hours)', 'Break (h:mm)', 'Days not checked out']];
     let gw = 0, gd = 0, gb = 0, go = 0;
     for (const t of totals) { tot.push([t.name, t.days, fmtHM(t.work), hoursNum(t.work), fmtHM(t.brk), t.open]); gw += t.work; gd += t.days; gb += t.brk; go += t.open; }
     if (totals.length > 1) tot.push(['TOTAL', gd, fmtHM(gw), hoursNum(gw), fmtHM(gb), go]);
-    const evs = [['Date', 'Time', 'Employee', 'Event', 'Source']];
+    const evs = [['Date', 'Time', 'Employee', 'Event', 'Location', 'Source']];
     const flat = [];
-    for (const r of rows) for (const e of r.ev) flat.push({at: e.at, row: [r.date, fmtTime(e.at), r.name, LABEL[e.t], e.source === 'manual' ? 'Admin edit' : 'Clock']});
+    for (const r of rows) for (const e of r.ev) flat.push({at: e.at, row: [r.date, fmtTime(e.at), r.name, LABEL[e.t], placeOf(e.station_id), e.source === 'manual' ? 'Admin edit' : 'Clock']});
     flat.sort((a, b) => a.at - b.at).forEach(f => evs.push(f.row));
     return {rows, daily, tot, evs};
   }
@@ -874,8 +973,8 @@ td .pill{margin:0}
     const wb = XLSX.utils.book_new();
     const sheet = (aoa, widths) => { const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = widths.map(w => ({wch: w})); ws['!autofilter'] = {ref: XLSX.utils.encode_range({s: {r: 0, c: 0}, e: {r: aoa.length - 1, c: aoa[0].length - 1}})}; return ws; };
     XLSX.utils.book_append_sheet(wb, sheet(tot, [20, 12, 14, 14, 13, 20]), 'Totals');
-    XLSX.utils.book_append_sheet(wb, sheet(daily, [12, 11, 20, 10, 10, 13, 14, 14, 16, 15]), 'Daily');
-    XLSX.utils.book_append_sheet(wb, sheet(evs, [12, 8, 20, 13, 12]), 'Events');
+    XLSX.utils.book_append_sheet(wb, sheet(daily, [12, 11, 20, 14, 10, 10, 13, 14, 14, 16, 15]), 'Daily');
+    XLSX.utils.book_append_sheet(wb, sheet(evs, [12, 8, 20, 13, 14, 12]), 'Events');
     const info = XLSX.utils.aoa_to_sheet([['Clockline export'], ['Period', `${report.from} to ${report.to}`], ['Employee', personLabel()], ['Generated', new Date().toLocaleString('en-GB')], ['Note', 'Worked hours exclude breaks. "Not checked out" days only count time up to the last recorded event.']]);
     info['!cols'] = [{wch: 12}, {wch: 70}];
     XLSX.utils.book_append_sheet(wb, info, 'About');
@@ -963,6 +1062,85 @@ td .pill{margin:0}
     toast(`${s.name} removed. Their PIN no longer works.`); loadOverview();
   }
 
+  // ---------- locations & devices ----------
+  const ago = (iso) => {
+    if (!iso) return 'never';
+    const m = Math.round((Date.now() + ov.offset - Date.parse(iso)) / 60000);
+    if (m < 2) return 'just now';
+    if (m < 60) return `${m} min ago`;
+    if (m < 1440) return `${Math.round(m / 60)} h ago`;
+    return new Date(iso).toLocaleDateString('en-GB', {day: 'numeric', month: 'short'});
+  };
+  let confirmStation = null, confirmStationTimer = null;
+  function renderLocations() {
+    const box = $('#loc-list');
+    if (!ov.loaded) { box.replaceChildren(h('div', {class: 'panel dim', text: 'Loading…'})); return; }
+    if (!ov.places.length) { box.replaceChildren(h('div', {class: 'panel dim', text: 'No locations yet. Add one below.'})); return; }
+    box.replaceChildren(...ov.places.map(p => {
+      const live = p.stations.filter(s => s.active);
+      const toggle = h('input', {type: 'checkbox', checked: p.allow_new, onchange: async (e) => {
+        const want = e.target.checked; e.target.disabled = true;
+        const r = await arpc('clockline_admin_update_location', {p_id: p.id, p_password: null, p_allow_new: want});
+        if (!r.ok) { adminErr(r); e.target.checked = !want; e.target.disabled = false; return; }
+        toast(want ? `${p.name}: new devices can be set up` : `${p.name}: closed to new devices`);
+        loadOverview();
+      }});
+      return h('div', {class: 'panel stack place'},
+        h('div', {class: 'place-head'}, h('h2', {text: p.name}),
+          h('div', {class: 'inline', style: 'align-items:center;gap:14px'},
+            h('label', {class: 'switch'}, toggle, 'Allow new devices'),
+            h('button', {class: 'btn sm', type: 'button', text: 'Change password', onclick: () => openLocPass(p)}))),
+        live.length
+          ? h('div', {class: 'list'}, live.map(s => {
+              const armed = confirmStation === s.id;
+              return h('div', {class: 'row'},
+                h('span', {class: 'name'}, s.label || 'Device', h('span', {class: 'tag', text: `set up ${new Date(s.created_at).toLocaleDateString('en-GB', {day: 'numeric', month: 'short'})}`})),
+                h('span', {class: 'dim', style: 'font-size:13.5px', text: `Last used ${ago(s.last_seen)}`}),
+                h('button', {class: 'btn sm danger' + (armed ? ' armed' : ''), type: 'button', text: armed ? 'Tap to confirm' : 'Remove', onclick: () => removeStation(s)}));
+            }))
+          : h('p', {class: 'hint', text: p.allow_new ? `No devices yet. On the shop computer, open the clock and set it up with "${p.name}" and this location's password.` : 'No devices. Switch on "Allow new devices" to set one up.'}));
+    }));
+  }
+  async function removeStation(s) {
+    if (confirmStation !== s.id) {
+      confirmStation = s.id; clearTimeout(confirmStationTimer);
+      confirmStationTimer = setTimeout(() => { confirmStation = null; renderLocations(); }, 4000);
+      renderLocations(); return;
+    }
+    confirmStation = null; clearTimeout(confirmStationTimer);
+    const r = await arpc('clockline_admin_remove_station', {p_id: s.id});
+    if (!r.ok) { adminErr(r); return; }
+    toast('Device removed. It can no longer be used to clock in.'); loadOverview();
+  }
+  function openLocPass(p) {
+    const a = h('input', {class: 'input', type: 'password', id: 'lp-1', autocomplete: 'new-password'});
+    const b = h('input', {class: 'input', type: 'password', id: 'lp-2', autocomplete: 'new-password'});
+    const err = h('p', {class: 'err'});
+    const save = async () => {
+      if (a.value.length < 6) { err.textContent = 'Use at least 6 characters.'; return; }
+      if (a.value !== b.value) { err.textContent = 'The two entries don’t match.'; return; }
+      const r = await arpc('clockline_admin_update_location', {p_id: p.id, p_password: a.value, p_allow_new: null});
+      if (!r.ok) { adminErr(r, err); return; }
+      closeModal(); toast(`${p.name} password changed. Devices already set up keep working.`);
+    };
+    openModal(h('div', {class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Change location password'},
+      h('h2', {text: `${p.name} password`}), h('p', {class: 'sub', text: 'Only needed to set up new devices here. Devices already set up keep working.'}),
+      h('div', {class: 'field'}, h('label', {for: 'lp-1', text: 'New password'}), a),
+      h('div', {class: 'field'}, h('label', {for: 'lp-2', text: 'Repeat it'}), b), err,
+      h('div', {class: 'modal-foot'}, h('span', {class: 'spacer'}), h('button', {class: 'btn', type: 'button', text: 'Cancel', onclick: closeModal}), h('button', {class: 'btn primary', type: 'button', text: 'Save', onclick: save}))));
+  }
+  $('#loc-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = $('#nl-err'); err.textContent = '';
+    const name = $('#nl-name').value.trim(), pass = $('#nl-pass').value;
+    if (!name) { err.textContent = 'Type a name.'; return; }
+    if (pass.length < 6) { err.textContent = 'Use a password of at least 6 characters.'; return; }
+    const r = await arpc('clockline_admin_add_location', {p_name: name, p_password: pass});
+    if (!r.ok) { if (r.error === 'duplicate') { err.textContent = `${name} already exists.`; return; } adminErr(r, err); return; }
+    $('#nl-name').value = ''; $('#nl-pass').value = '';
+    toast(`${name} added`); loadOverview();
+  });
+
   // ---------- settings ----------
   $('#f-pass').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -991,7 +1169,7 @@ td .pill{margin:0}
       // leaving admin for the clock always signs out, so a shared device never stays unlocked
       if (token) { const t = token; token = null; ss.del(TOKEN_KEY); rpc('clockline_admin_logout', {p_token: t}); }
       $('#login').hidden = true; $('#admin').hidden = true; $('#kiosk').hidden = false;
-      kReset();
+      kReset(); kCheckStation();
     }
   }
   window.addEventListener('hashchange', applyRoute);
