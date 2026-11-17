@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#2b5583">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Clockline">
+<meta name="robots" content="noindex">
+<title>Clockline</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232b5583'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='white' stroke-width='5'/%3E%3Cpath d='M32 20v12h9' fill='none' stroke='white' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<style>
+:root{
+  /* Layout: kiosk = clock header + centred PIN card; admin = header → tabs → live board / reports / team / settings */
+  --bg:#f1f4f7; --surface:#ffffff; --ink:#17212b; --muted:#64707d; --line:#dde3ea; --soft:#e8edf3;
+  --accent:#2b5583; --on-strong:#ffffff;
+  --in:#1b7c52; --in-soft:#e1f2e9; --brk:#a8680a; --brk-soft:#fbefd9; --off:#7d8894; --off-soft:#edf0f3;
+  --danger:#b2361f; --danger-soft:#fbe6e1;
+  --font-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --font-body:"Figtree","Segoe UI",system-ui,-apple-system,sans-serif;
+  --radius:14px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0e1318; --surface:#161d24; --ink:#e5eaef; --muted:#8f9ba7; --line:#26303a; --soft:#1d2630;
+    --accent:#86afdb; --on-strong:#0e1318;
+    --in:#4cc48d; --in-soft:#14302a; --brk:#eaa844; --brk-soft:#34290f; --off:#8f9ba7; --off-soft:#1d252e;
+    --danger:#f07c64; --danger-soft:#3a1d18;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+
+.brand{display:flex;align-items:center;gap:12px}
+.mark{width:34px;height:34px;border-radius:50%;border:2.5px solid var(--accent);position:relative;flex:none}
+.mark::before,.mark::after{content:"";position:absolute;left:50%;top:50%;background:var(--accent);border-radius:2px}
+.mark::before{width:2.5px;height:11px;transform:translate(-50%,-100%)}
+.mark::after{width:8px;height:2.5px;transform:translate(0,-50%)}
+.brand h1{font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1}
+.brand p{margin:3px 0 0;color:var(--muted);font-size:13px}
+.clockbox{text-align:right}
+.clock{font-family:var(--font-display);font-size:42px;font-weight:500;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.datestr{color:var(--muted);font-size:14px;margin-top:4px}
+
+/* ---------- buttons & inputs ---------- */
+.btn{font-weight:600;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:10px 14px;min-height:44px;cursor:pointer;transition:background .15s,transform .06s,opacity .15s;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none}
+.btn:hover{background:var(--soft)}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.45;cursor:default;transform:none}
+.btn.go{background:var(--in);border-color:var(--in);color:var(--on-strong)}
+.btn.brk{background:var(--brk);border-color:var(--brk);color:var(--on-strong)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-strong)}
+.btn.go:hover,.btn.brk:hover,.btn.primary:hover{filter:brightness(1.07)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--danger)}
+.btn.danger.armed{background:var(--danger);border-color:var(--danger);color:var(--on-strong)}
+.btn.sm{min-height:34px;padding:6px 12px;font-size:13.5px;border-radius:8px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.input{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 12px;min-height:44px;max-width:100%}
+.err{color:var(--danger);font-size:13.5px;margin:0;min-height:1.2em}
+.ok{color:var(--in);font-size:13.5px;margin:0;min-height:1.2em}
+.hint{color:var(--muted);font-size:13.5px;margin:0}
+
+/* ---------- kiosk ---------- */
+.kiosk{min-height:100%;display:flex;flex-direction:column;padding:24px 20px 16px;gap:20px}
+.kiosk-head{width:100%;max-width:1000px;margin:0 auto;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.kiosk-main{flex:1;display:grid;place-items:center}
+.kcard{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:26px 24px;display:flex;flex-direction:column;gap:18px;box-shadow:0 10px 30px rgba(20,30,45,.06)}
+.kcard h2{font-size:26px;text-align:center;letter-spacing:-.01em}
+.kcard .sub{text-align:center;color:var(--muted);margin:-10px 0 0}
+.dots{display:flex;justify-content:center;gap:12px;height:18px}
+.dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--line);transition:background .1s}
+.dot.f{background:var(--ink);border-color:var(--ink)}
+.shake{animation:shake .35s}
+@keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.key{min-height:64px;font-family:var(--font-display);font-size:26px;font-weight:500;border-radius:14px;border:1px solid var(--line);background:var(--soft);color:var(--ink);cursor:pointer;transition:background .1s,transform .06s;font-variant-numeric:tabular-nums}
+.key:hover{background:var(--line)}
+.key:active{transform:scale(.97)}
+.key.fn{font-family:var(--font-body);font-size:15px;font-weight:600;background:transparent}
+.key.okk{background:var(--accent);border-color:var(--accent);color:var(--on-strong);font-family:var(--font-body);font-size:17px;font-weight:700}
+.key:disabled{opacity:.4;cursor:default}
+.bigacts{display:flex;flex-direction:column;gap:10px}
+.bigacts .btn{min-height:64px;font-size:19px;border-radius:14px}
+.done{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.tick{width:72px;height:72px;border-radius:50%;background:var(--in-soft);display:grid;place-items:center}
+.tick::after{content:"";width:26px;height:14px;border-left:5px solid var(--in);border-bottom:5px solid var(--in);transform:rotate(-45deg) translate(2px,-3px)}
+.tick.b{background:var(--brk-soft)} .tick.b::after{border-color:var(--brk)}
+.kfoot{text-align:center}
+.kfoot a{color:var(--muted);font-size:13px;text-decoration:none;padding:6px 10px;border-radius:8px}
+.kfoot a:hover{background:var(--soft)}
+
+/* ---------- admin ---------- */
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px 48px}
+header.top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;padding:26px 0 18px}
+.who{color:var(--muted);font-size:13.5px;display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:6px;flex-wrap:wrap}
+.who a,.who button{color:var(--accent);background:none;border:0;padding:0;cursor:pointer;font-weight:600;text-decoration:none;font-size:13.5px}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+nav.tabs{display:inline-flex;background:var(--soft);border-radius:999px;padding:4px;gap:2px;flex-wrap:wrap}
+.tab{border:0;background:transparent;padding:8px 16px;border-radius:999px;font-weight:600;color:var(--muted);cursor:pointer}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.stats{display:flex;gap:16px;flex-wrap:wrap}
+.stat{display:flex;align-items:baseline;gap:6px;color:var(--muted);font-size:14px}
+.stat b{font-family:var(--font-display);font-size:22px;color:var(--ink);font-variant-numeric:tabular-nums}
+.stat i{width:9px;height:9px;border-radius:50%;display:inline-block;align-self:center}
+.banner{padding:11px 14px;border-radius:10px;background:var(--brk-soft);border:1px solid var(--line);margin-bottom:16px;font-size:14px}
+
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 16px 16px 20px;display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden}
+.card::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:var(--off-soft)}
+.card.s-in::before{background:var(--in)}
+.card.s-break::before{background:var(--brk)}
+.card-top{display:flex;align-items:center;gap:12px}
+.avatar{width:42px;height:42px;border-radius:50%;background:var(--soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:14px;flex:none;letter-spacing:.02em}
+.card h3{font-size:19px;font-weight:700;letter-spacing:-.01em;overflow-wrap:anywhere}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:2px 10px;border-radius:999px;margin-top:3px;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.in{background:var(--in-soft);color:var(--in)}
+.pill.break{background:var(--brk-soft);color:var(--brk)}
+.pill.off{background:var(--off-soft);color:var(--off)}
+.pill.warn{background:var(--danger-soft);color:var(--danger)}
+.meta{margin:0;color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums}
+.meta strong{color:var(--ink);font-weight:600}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius);padding:28px;text-align:center;color:var(--muted);grid-column:1/-1}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.controls + .controls{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.spacer{flex:1}
+.range-note{color:var(--muted);font-size:13.5px}
+.totals{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:16px}
+.total{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 14px}
+.total.all{background:var(--soft)}
+.total span{display:block;color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+.total b{font-family:var(--font-display);font-size:21px;font-weight:700;font-variant-numeric:tabular-nums}
+.total small{display:block;color:var(--muted);font-size:12.5px}
+.total small.warn{color:var(--danger);font-weight:600}
+.table-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600;padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right}
+td .pill{margin:0}
+.dim{color:var(--muted)}
+.tag{font-size:11.5px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:1px 6px;margin-left:6px;white-space:nowrap}
+.tag.warn{color:var(--danger);border-color:var(--danger)}
+
+.narrow{max-width:620px}
+.addform{display:grid;grid-template-columns:1fr 150px auto;gap:8px;align-items:end}
+@media (max-width:520px){.addform{grid-template-columns:1fr}}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+.row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.row:last-child{border-bottom:0}
+.row .name{flex:1;font-weight:600;overflow-wrap:anywhere;min-width:120px}
+.row .acts{display:flex;gap:6px}
+.stack{display:flex;flex-direction:column;gap:10px}
+.pinshow{font-family:var(--font-display);font-size:40px;font-weight:700;letter-spacing:.25em;text-align:center;font-variant-numeric:tabular-nums;background:var(--soft);border-radius:12px;padding:12px}
+
+.login{min-height:100%;display:grid;place-items:center;padding:24px}
+.login form{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:28px;width:100%;max-width:380px;display:flex;flex-direction:column;gap:14px}
+
+.overlay{position:fixed;inset:0;background:rgba(8,12,16,.5);display:grid;place-items:center;padding:16px;z-index:50}
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:16px;width:100%;max-width:470px;max-height:92%;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+.modal h2{font-size:21px}
+.modal .sub{color:var(--muted);font-size:14px;margin:-8px 0 0}
+.ev-row{display:grid;grid-template-columns:1fr 112px 40px;gap:8px;align-items:center}
+.ev-row .input{min-height:40px;padding:7px 10px;width:100%}
+.ev-list{display:flex;flex-direction:column;gap:8px}
+.modal-foot{display:flex;gap:8px;flex-wrap:wrap}
+.modal-foot .spacer{flex:1}
+.inline{display:flex;gap:8px}
+.inline .input{flex:1}
+
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:11px 12px 11px 16px;border-radius:12px;display:flex;gap:12px;align-items:center;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:60;max-width:calc(100% - 32px);font-weight:500}
+.toast button{background:transparent;border:1px solid currentColor;color:inherit;border-radius:8px;padding:5px 12px;font-weight:700;cursor:pointer}
+
+@media (max-width:560px){
+  .clock{font-size:32px}
+  .clockbox{text-align:left}
+  .who{justify-content:flex-start}
+  .tab{padding:8px 12px}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ================= KIOSK ================= -->
+<div class="kiosk" id="kiosk" hidden>
+  <div class="kiosk-head">
+    <div class="brand"><span class="mark" aria-hidden="true"></span><div><h1>Clockline</h1><p>Staff time clock</p></div></div>
+    <div class="clockbox"><div class="clock" data-clock>--:--</div><div class="datestr" data-date></div></div>
+  </div>
+  <main class="kiosk-main">
+    <section class="kcard" id="k-pin" aria-label="Enter your PIN">
+      <h2>Enter your PIN</h2>
+      <div class="dots" id="k-dots" aria-live="polite"></div>
+      <p class="err" id="k-err" style="text-align:center"></p>
+      <div class="keypad" id="k-keys"></div>
+    </section>
+    <section class="kcard" id="k-act" hidden aria-live="polite">
+      <h2 id="k-hello">Hi</h2>
+      <p class="sub">What are you doing?</p>
+      <div class="bigacts" id="k-acts"></div>
+      <p class="err" id="k-act-err" style="text-align:center"></p>
+      <button class="btn ghost" id="k-cancel" type="button">Cancel</button>
+    </section>
+    <section class="kcard" id="k-done" hidden aria-live="polite">
+      <div class="done">
+        <span class="tick" id="k-tick"></span>
+        <h2 id="k-done-title">Done</h2>
+        <p class="sub" id="k-done-sub" style="margin:0"></p>
+      </div>
+      <div class="inline">
+        <button class="btn" id="k-undo" type="button" style="flex:1">Undo</button>
+        <button class="btn primary" id="k-finish" type="button" style="flex:1">Done</button>
+      </div>
+    </section>
+  </main>
+  <div class="kfoot"><a href="#admin">Admin</a></div>
+</div>
+
+<!-- ================= ADMIN LOGIN ================= -->
+<div class="login" id="login" hidden>
+  <form id="login-form" autocomplete="on">
+    <div class="brand"><span class="mark" aria-hidden="true"></span><div><h1>Clockline</h1><p>Admin</p></div></div>
+    <p class="hint" id="login-msg">Sign in to manage staff, PINs and reports.</p>
+    <div class="field"><label for="l-user">Username</label><input class="input" id="l-user" autocomplete="username" required></div>
+    <div class="field"><label for="l-pass">Password</label><input class="input" id="l-pass" type="password" autocomplete="current-password" required></div>
+    <p class="err" id="login-err"></p>
+    <button class="btn primary" type="submit" id="login-btn">Sign in</button>
+    <a class="btn ghost" href="#">Back to the clock</a>
+  </form>
+</div>
+
+<!-- ================= ADMIN APP ================= -->
+<div class="wrap" id="admin" hidden>
+  <header class="top">
+    <div class="brand"><span class="mark" aria-hidden="true"></span><div><h1>Clockline</h1><p>Admin</p></div></div>
+    <div class="clockbox">
+      <div class="clock" data-clock>--:--</div>
+      <div class="who"><span data-date></span><span>·</span><span>Roberto</span><a href="#">Open the clock</a><button type="button" id="a-signout">Sign out</button></div>
+    </div>
+  </header>
+  <div class="bar">
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tab-now" data-tab="now">Now</button>
+      <button class="tab" role="tab" id="tab-reports" data-tab="reports">Reports</button>
+      <button class="tab" role="tab" id="tab-team" data-tab="team">Team &amp; PINs</button>
+      <button class="tab" role="tab" id="tab-settings" data-tab="settings">Settings</button>
+    </nav>
+    <div class="stats" id="stats">
+      <span class="stat"><i style="background:var(--in)"></i><b id="n-in">0</b> on shift</span>
+      <span class="stat"><i style="background:var(--brk)"></i><b id="n-break">0</b> on break</span>
+      <span class="stat"><i style="background:var(--off)"></i><b id="n-off">0</b> not in</span>
+    </div>
+  </div>
+  <div class="banner" id="banner" hidden></div>
+
+  <section id="view-now" hidden><div class="board" id="now-grid"></div></section>
+
+  <section id="view-reports" hidden>
+    <div class="panel">
+      <div class="controls">
+        <div class="field"><label for="r-period">Period</label>
+          <select class="input" id="r-period">
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="thisweek">This week</option>
+            <option value="lastweek">Last week</option>
+            <option value="thismonth" selected>This month</option>
+            <option value="lastmonth">Last month</option>
+            <option value="last30">Last 30 days</option>
+            <option value="custom">Custom dates</option>
+          </select>
+        </div>
+        <div class="field"><label for="r-from">From</label><input class="input" type="date" id="r-from"></div>
+        <div class="field"><label for="r-to">To</label><input class="input" type="date" id="r-to"></div>
+        <div class="field"><label for="r-person">Employee</label><select class="input" id="r-person"></select></div>
+      </div>
+      <div class="controls">
+        <span class="range-note" id="r-note"></span>
+        <span class="spacer"></span>
+        <button class="btn" id="r-add" type="button">Add or fix a day</button>
+        <button class="btn" id="r-csv" type="button">Download CSV</button>
+        <button class="btn primary" id="r-xlsx" type="button">Download Excel</button>
+      </div>
+    </div>
+    <div class="totals" id="r-totals"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Employee</th><th>In</th><th>Out</th><th class="num">Breaks</th><th class="num">Worked</th><th>Status</th><th></th></tr></thead>
+        <tbody id="r-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="view-team" class="narrow" hidden>
+    <form class="panel stack" id="add-form">
+      <div class="addform">
+        <div class="field"><label for="add-name">Name</label><input class="input" id="add-name" placeholder="e.g. Sofia" maxlength="40" autocomplete="off"></div>
+        <div class="field"><label for="add-pin">PIN</label>
+          <div class="inline"><input class="input" id="add-pin" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="4–8 digits" style="min-width:0"></div>
+        </div>
+        <div class="inline"><button class="btn" type="button" id="add-gen" title="Make a random PIN">Generate</button><button class="btn primary" type="submit">Add</button></div>
+      </div>
+      <p class="err" id="add-err"></p>
+      <p class="hint">Each person needs their own PIN to use the clock. PINs are stored scrambled, so write a new one down when you set it. If someone forgets theirs, set a new one. Removing a person keeps their past hours in reports.</p>
+    </form>
+    <div class="list" id="team-list"></div>
+  </section>
+
+  <section id="view-settings" class="narrow" hidden>
+    <form class="panel stack" id="f-pass">
+      <h2 style="font-size:18px">Admin password</h2>
+      <div class="field"><label for="p-old">Current password</label><input class="input" id="p-old" type="password" autocomplete="current-password"></div>
+      <div class="field"><label for="p-new1">New password</label><input class="input" id="p-new1" type="password" autocomplete="new-password"></div>
+      <div class="field"><label for="p-new2">Repeat new password</label><input class="input" id="p-new2" type="password" autocomplete="new-password"></div>
+      <p class="err" id="p-msg"></p>
+      <div><button class="btn primary" type="submit">Change password</button></div>
+    </form>
+    <div class="panel stack">
+      <h2 style="font-size:18px">How the clock works</h2>
+      <p class="hint">Staff open the clock page, type their PIN and pick check in, break, back or check out. They never see hours, theirs or anyone else's. Every tap is stored with the server's time, so changing a device's clock doesn't change the record. Admin sign-in ends after 15 minutes without use.</p>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast" role="status" hidden><span id="toast-text"></span><button id="toast-btn" type="button" hidden></button></div>
+<div id="modal-root"></div>
+
+<script>
+(() => {
+  const SB_URL = 'https://cwlrmwajxbtjhqnbeghe.supabase.co';
+  const SB_KEY = 'sb_publishable_2V2SwnHqEZUBrWOOdCT0Fg_UAoeteDO';
+  const TOKEN_KEY = 'clockline.admin';
+  const ADMIN_IDLE_MS = 15 * 60 * 1000;
+
+  const LABEL = {in: 'Check in', break: 'Start break', back: 'End break', out: 'Check out'};
+  const STATUS = {in: 'On shift', break: 'On break', off: 'Not in'};
+  const DONE = {
+    in: ['You’re checked in', 'Have a good shift.'],
+    break: ['Enjoy your break', 'Tap End break when you’re back.'],
+    back: ['Welcome back', 'Your break has ended.'],
+    out: ['You’re checked out', 'See you next time.'],
+  };
+  const NET = 'No connection to the server. Check the internet and try again.';
+
+  const $ = (s) => document.querySelector(s);
+  const pad = (n) => String(n).padStart(2, '0');
+  const dateKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const keyToDate = (k) => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+  const addDays = (k, n) => { const d = keyToDate(k); d.setDate(d.getDate() + n); return dateKey(d); };
+  const fmtTime = (ms) => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const mins = (ms) => Math.max(0, Math.round(ms / 60000));
+  const fmtDur = (ms) => { const m = mins(ms), h = Math.floor(m / 60); return h ? `${h}h ${pad(m % 60)}m` : `${m}m`; };
+  const fmtHM = (ms) => { const m = mins(ms); return `${Math.floor(m / 60)}:${pad(m % 60)}`; };
+  const hoursNum = (ms) => Math.round(mins(ms) / 60 * 100) / 100;
+  const dayShort = (k) => keyToDate(k).toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short'});
+  const dayLong = (k) => keyToDate(k).toLocaleDateString('en-GB', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
+  const dayName = (k) => keyToDate(k).toLocaleDateString('en-GB', {weekday: 'long'});
+  const initials = (name) => name.trim().split(/\s+/).map(w => w[0] || '').join('').slice(0, 2).toUpperCase();
+  const slug = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'x';
+  const ss = {
+    get(k) { try { return sessionStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { sessionStorage.setItem(k, v); } catch {} },
+    del(k) { try { sessionStorage.removeItem(k); } catch {} },
+  };
+
+  function h(tag, props, ...kids) {
+    const n = document.createElement(tag);
+    if (props) for (const [k, v] of Object.entries(props)) {
+      if (v == null || v === false) continue;
+      if (k === 'class') n.className = v;
+      else if (k === 'text') n.textContent = v;
+      else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+      else if (k === 'value') n.value = v;
+      else n.setAttribute(k, v === true ? '' : v);
+    }
+    for (const k of kids.flat()) { if (k == null || k === false) continue; n.append(k instanceof Node ? k : document.createTextNode(String(k))); }
+    return n;
+  }
+
+  async function rpc(fn, args) {
+    let r;
+    try {
+      r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {method: 'POST', headers: {apikey: SB_KEY, 'Content-Type': 'application/json'}, body: JSON.stringify(args)});
+    } catch { return {ok: false, error: 'network'}; }
+    if (!r.ok) return {ok: false, error: 'server', status: r.status};
+    try { return await r.json(); } catch { return {ok: false, error: 'server'}; }
+  }
+
+  let toastTimer = null;
+  function toast(text, label, fn) {
+    const t = $('#toast'), btn = $('#toast-btn');
+    $('#toast-text').textContent = text;
+    btn.hidden = !label; btn.textContent = label || '';
+    btn.onclick = label ? () => { t.hidden = true; fn(); } : null;
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.hidden = true; }, label ? 8000 : 3500);
+  }
+  function openModal(node) {
+    const ov = h('div', {class: 'overlay', onclick: (e) => { if (e.target === ov) closeModal(); }}, node);
+    $('#modal-root').replaceChildren(ov);
+    const f = node.querySelector('input,select'); f && f.focus();
+  }
+  function closeModal() { $('#modal-root').replaceChildren(); }
+
+  // ---------- shared time logic ----------
+  function summarize(events, liveNow) {
+    let state = 'off', seg = 0, br = 0, work = 0, brk = 0, firstIn = null, lastOut = null, since = null;
+    for (const e of events) {
+      if (e.t === 'in' && state === 'off') { state = 'in'; seg = e.at; since = e.at; if (firstIn == null) firstIn = e.at; }
+      else if (e.t === 'break' && state === 'in') { work += e.at - seg; state = 'break'; br = e.at; since = e.at; }
+      else if (e.t === 'back' && state === 'break') { brk += e.at - br; state = 'in'; seg = e.at; since = e.at; }
+      else if (e.t === 'out' && state !== 'off') { if (state === 'in') work += e.at - seg; else brk += e.at - br; state = 'off'; lastOut = e.at; since = e.at; }
+    }
+    if (liveNow) { if (state === 'in') work += liveNow - seg; if (state === 'break') brk += liveNow - br; }
+    return {state, work, brk, firstIn, lastOut, since};
+  }
+  function checkSequence(events) {
+    let st = 'off';
+    for (const e of events) {
+      const ok = (e.t === 'in' && st === 'off') || (e.t === 'break' && st === 'in') || (e.t === 'back' && st === 'break') || (e.t === 'out' && st !== 'off');
+      if (!ok) return `"${LABEL[e.t]}" at ${fmtTime(e.at)} doesn't follow from the event before it. Check the order and times.`;
+      st = (e.t === 'in' || e.t === 'back') ? 'in' : e.t === 'break' ? 'break' : 'off';
+    }
+    return null;
+  }
+  const toEv = (e) => ({id: e.id, t: e.type, at: Date.parse(e.at), source: e.source || 'kiosk', staff_id: e.staff_id});
+
+  // =====================================================================
+  // KIOSK
+  // =====================================================================
+  const kiosk = {pin: '', busy: false, ids: null, timer: null};
+  const MAXPIN = 8;
+  function kShow(which) {
+    ['k-pin', 'k-act', 'k-done'].forEach(id => { $('#' + id).hidden = id !== which; });
+  }
+  function kReset() {
+    clearTimeout(kiosk.timer);
+    kiosk.pin = ''; kiosk.ids = null; kiosk.busy = false;
+    $('#k-err').textContent = ''; $('#k-act-err').textContent = '';
+    kDots(); kShow('k-pin');
+  }
+  function kDots() {
+    const n = Math.max(4, kiosk.pin.length);
+    $('#k-dots').replaceChildren(...Array.from({length: n}, (_, i) => h('span', {class: 'dot' + (i < kiosk.pin.length ? ' f' : '')})));
+    $('#k-dots').setAttribute('aria-label', `${kiosk.pin.length} digits entered`);
+  }
+  function kIdle(ms) { clearTimeout(kiosk.timer); kiosk.timer = setTimeout(kReset, ms); }
+  function kKey(k) {
+    if (kiosk.busy || $('#k-pin').hidden) return;
+    $('#k-err').textContent = '';
+    if (k === 'C') kiosk.pin = '';
+    else if (k === '<') kiosk.pin = kiosk.pin.slice(0, -1);
+    else if (k === 'OK') { kSubmit(); return; }
+    else if (/^\d$/.test(k) && kiosk.pin.length < MAXPIN) kiosk.pin += k;
+    kDots(); kIdle(30000);
+  }
+  function kWrong(msg) {
+    const c = $('#k-pin'); c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake');
+    $('#k-err').textContent = msg; kiosk.pin = ''; kDots();
+  }
+  async function kSubmit() {
+    if (kiosk.pin.length < 4) { kWrong('PINs have at least 4 digits.'); return; }
+    kiosk.busy = true;
+    const r = await rpc('clockline_kiosk_identify', {p_pin: kiosk.pin});
+    kiosk.busy = false;
+    if (!r.ok) {
+      kWrong(r.error === 'bad_pin' ? 'That PIN isn’t recognised. Try again.' : r.error === 'locked' ? 'Too many wrong PINs. Wait 15 minutes, or ask the manager.' : NET);
+      return;
+    }
+    $('#k-hello').textContent = `Hi ${r.name}`;
+    const b = (type, cls) => h('button', {class: 'btn ' + cls, type: 'button', text: LABEL[type], onclick: () => kAct(type)});
+    const acts = r.state === 'off' ? [b('in', 'go')]
+      : r.state === 'in' ? [b('break', 'brk'), b('out', 'primary')]
+      : [b('back', 'go'), b('out', 'primary')];
+    $('#k-acts').replaceChildren(...acts);
+    $('#k-act-err').textContent = '';
+    kShow('k-act'); kIdle(20000);
+    acts[0].focus();
+  }
+  async function kAct(type) {
+    if (kiosk.busy) return;
+    kiosk.busy = true;
+    $('#k-acts').querySelectorAll('button').forEach(b => { b.disabled = true; });
+    const r = await rpc('clockline_kiosk_clock', {p_pin: kiosk.pin, p_type: type});
+    kiosk.busy = false;
+    if (!r.ok) {
+      $('#k-acts').querySelectorAll('button').forEach(b => { b.disabled = false; });
+      if (r.error === 'bad_state') { $('#k-act-err').textContent = 'That was already done. Start again.'; kIdle(3000); }
+      else if (r.error === 'bad_pin') { kReset(); kWrong('Your PIN was changed. Ask the manager.'); }
+      else $('#k-act-err').textContent = r.error === 'locked' ? 'Too many wrong PINs. Wait 15 minutes.' : NET;
+      return;
+    }
+    kiosk.ids = r.ids;
+    const [title, sub] = DONE[type];
+    $('#k-done-title').textContent = `${title}, ${r.name}`;
+    $('#k-done-sub').textContent = sub;
+    $('#k-tick').className = 'tick' + (type === 'break' ? ' b' : '');
+    $('#k-undo').disabled = false; $('#k-undo').textContent = 'Undo';
+    kShow('k-done'); kIdle(7000);
+    $('#k-finish').focus();
+  }
+  async function kUndo() {
+    if (!kiosk.ids || kiosk.busy) return;
+    kiosk.busy = true; $('#k-undo').disabled = true;
+    const r = await rpc('clockline_kiosk_undo', {p_pin: kiosk.pin, p_ids: kiosk.ids});
+    kiosk.busy = false;
+    $('#k-done-title').textContent = r.ok ? 'Undone' : 'Couldn’t undo';
+    $('#k-done-sub').textContent = r.ok ? 'Nothing was recorded.' : (r.error === 'too_late' ? 'Too late to undo. Ask the manager to fix it.' : NET);
+    $('#k-tick').className = 'tick b';
+    kiosk.ids = null; kIdle(3500);
+  }
+  function buildKeypad() {
+    const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', 'OK'];
+    $('#k-keys').replaceChildren(...keys.map(k => h('button', {
+      class: 'key' + (k === 'C' ? ' fn' : k === 'OK' ? ' okk' : ''), type: 'button',
+      'aria-label': k === 'C' ? 'Clear' : k === 'OK' ? 'Confirm PIN' : k, text: k === 'C' ? 'Clear' : k, onclick: () => kKey(k)})));
+    kDots();
+  }
+  document.addEventListener('keydown', (e) => {
+    if (route !== 'kiosk') return;
+    if (/^\d$/.test(e.key)) kKey(e.key);
+    else if (e.key === 'Backspace') kKey('<');
+    else if (e.key === 'Enter' && !$('#k-pin').hidden) { e.preventDefault(); kKey('OK'); }
+    else if (e.key === 'Escape') kReset();
+  });
+  $('#k-cancel').addEventListener('click', kReset);
+  $('#k-finish').addEventListener('click', kReset);
+  $('#k-undo').addEventListener('click', kUndo);
+
+  // =====================================================================
+  // ADMIN
+  // =====================================================================
+  let token = ss.get(TOKEN_KEY);
+  let lastActivity = Date.now();
+  let tab = 'now';
+  let ov = {staff: [], events: [], loaded: false, offset: 0};
+  let report = {staff: [], events: [], loaded: false, loading: false, from: null, to: null, person: 'all', reqId: 0};
+  let confirmRemove = null, confirmTimer = null, ovTimer = null;
+  const today = () => dateKey(new Date(Date.now() + ov.offset));
+  const nowMs = () => Date.now() + ov.offset;
+  ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, () => { lastActivity = Date.now(); }, {passive: true}));
+
+  function showBanner(text) { const b = $('#banner'); b.textContent = text || ''; b.hidden = !text; }
+  function sessionLost(msg) {
+    token = null; ss.del(TOKEN_KEY); clearInterval(ovTimer); closeModal();
+    if (route === 'admin') showLogin(msg || 'Your admin session ended. Sign in again.');
+  }
+  function adminErr(r, el) {
+    if (r.error === 'session') { sessionLost(); return; }
+    const msg = r.error === 'network' ? NET : 'Something went wrong. Try again.';
+    if (el) el.textContent = msg; else toast(msg);
+  }
+  async function arpc(fn, args) { return rpc(fn, {p_token: token, ...args}); }
+
+  function showLogin(msg) {
+    $('#kiosk').hidden = true; $('#admin').hidden = true; $('#login').hidden = false;
+    $('#login-msg').textContent = msg || 'Sign in to manage staff, PINs and reports.';
+    $('#login-err').textContent = ''; $('#l-pass').value = '';
+    setTimeout(() => ($('#l-user').value ? $('#l-pass') : $('#l-user')).focus(), 50);
+  }
+  $('#login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = $('#login-btn'); btn.disabled = true; $('#login-err').textContent = '';
+    const r = await rpc('clockline_admin_login', {p_user: $('#l-user').value, p_pass: $('#l-pass').value});
+    btn.disabled = false;
+    if (!r.ok) {
+      $('#login-err').textContent = r.error === 'bad_login' ? 'Wrong username or password.' : r.error === 'locked' ? 'Too many failed sign-ins. Wait 15 minutes.' : NET;
+      return;
+    }
+    token = r.token; ss.set(TOKEN_KEY, token); lastActivity = Date.now();
+    $('#l-pass').value = '';
+    startAdmin();
+  });
+  $('#a-signout').addEventListener('click', async () => {
+    const t = token; sessionLost('Signed out.');
+    if (t) rpc('clockline_admin_logout', {p_token: t});
+  });
+
+  function startAdmin() {
+    $('#kiosk').hidden = true; $('#login').hidden = true; $('#admin').hidden = false;
+    ov.loaded = false; goTab(tab);
+    loadOverview();
+    clearInterval(ovTimer); ovTimer = setInterval(() => { if (tab === 'now' || tab === 'team') loadOverview(); }, 30000);
+  }
+  async function loadOverview() {
+    if (!token) return;
+    const r = await arpc('clockline_admin_overview', {});
+    if (!r.ok) { if (r.error === 'session') { sessionLost(); return; } showBanner('Not connected. Retrying…'); return; }
+    showBanner('');
+    ov.offset = Date.parse(r.now) - Date.now();
+    ov.staff = r.staff; ov.events = r.events.map(toEv); ov.loaded = true;
+    renderAdmin();
+  }
+  function goTab(t) {
+    tab = t;
+    for (const x of ['now', 'reports', 'team', 'settings']) {
+      $('#view-' + x).hidden = x !== t;
+      $('#tab-' + x).setAttribute('aria-selected', String(x === t));
+    }
+    $('#stats').style.visibility = t === 'now' ? 'visible' : 'hidden';
+    renderAdmin();
+    if (t === 'reports') { if (!report.from) applyPeriod(); loadReport(); }
+  }
+  document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => goTab(b.dataset.tab)));
+  function renderAdmin() {
+    if (tab === 'now') renderNow();
+    else if (tab === 'reports') renderReports();
+    else if (tab === 'team') renderTeam();
+  }
+
+  // ---------- now ----------
+  function renderNow() {
+    const box = $('#now-grid');
+    const counts = {in: 0, break: 0, off: 0};
+    const active = ov.staff.filter(s => s.active);
+    const out = [];
+    if (!ov.loaded) out.push(h('div', {class: 'empty', text: 'Loading…'}));
+    else if (!active.length) out.push(h('div', {class: 'empty', text: 'No one on the team yet. Add people in Team & PINs.'}));
+    else {
+      const now = nowMs();
+      for (const s of active) {
+        const ev = ov.events.filter(e => e.staff_id === s.id);
+        const sum = summarize(ev, now);
+        counts[sum.state]++;
+        let meta;
+        if (sum.state === 'off') meta = ev.length ? h('p', {class: 'meta'}, `In ${fmtTime(sum.firstIn)} · out ${fmtTime(sum.lastOut)} · `, h('strong', {text: fmtDur(sum.work)})) : h('p', {class: 'meta', text: 'Not in yet today'});
+        else if (sum.state === 'in') meta = h('p', {class: 'meta'}, `In since ${fmtTime(sum.firstIn)} · `, h('strong', {text: fmtDur(sum.work)}), ' worked');
+        else meta = h('p', {class: 'meta'}, `On break since ${fmtTime(sum.since)} · `, h('strong', {text: fmtDur(sum.work)}), ' worked');
+        out.push(h('article', {class: 'card s-' + sum.state},
+          h('div', {class: 'card-top'},
+            h('span', {class: 'avatar', 'aria-hidden': 'true', text: initials(s.name)}),
+            h('div', null, h('h3', {text: s.name}), h('span', {class: 'pill ' + sum.state, text: STATUS[sum.state]}), s.has_pin ? null : h('span', {class: 'tag warn', text: 'No PIN'}))),
+          meta));
+      }
+    }
+    box.replaceChildren(...out);
+    $('#n-in').textContent = counts.in; $('#n-break').textContent = counts.break; $('#n-off').textContent = counts.off;
+  }
+
+  // ---------- reports ----------
+  function mondayOf(k) { const d = keyToDate(k); return addDays(k, -((d.getDay() + 6) % 7)); }
+  function periodRange(p) {
+    const t = today();
+    if (p === 'today') return [t, t];
+    if (p === 'yesterday') { const y = addDays(t, -1); return [y, y]; }
+    if (p === 'thisweek') return [mondayOf(t), t];
+    if (p === 'lastweek') { const m = addDays(mondayOf(t), -7); return [m, addDays(m, 6)]; }
+    if (p === 'thismonth') return [t.slice(0, 8) + '01', t];
+    if (p === 'lastmonth') { const end = addDays(t.slice(0, 8) + '01', -1); return [end.slice(0, 8) + '01', end]; }
+    if (p === 'last30') return [addDays(t, -29), t];
+    return null;
+  }
+  function applyPeriod() { const r = periodRange($('#r-period').value); if (r) { $('#r-from').value = r[0]; $('#r-to').value = r[1]; } }
+  async function loadReport() {
+    const from = $('#r-from').value, to = $('#r-to').value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return;
+    if (to < from) { $('#r-note').textContent = 'The "To" date is before the "From" date.'; return; }
+    const id = ++report.reqId;
+    report.loading = true; report.from = from; report.to = to; renderReports();
+    const r = await arpc('clockline_admin_range', {p_from: keyToDate(from).toISOString(), p_to: keyToDate(addDays(to, 1)).toISOString(), p_staff: null});
+    if (id !== report.reqId) return;
+    report.loading = false;
+    if (!r.ok) {
+      if (r.error === 'bad_range') { $('#r-note').textContent = 'Pick a range of up to 400 days.'; return; }
+      adminErr(r); renderReports(); return;
+    }
+    report.staff = r.staff; report.events = r.events.map(toEv); report.loaded = true;
+    renderReports();
+  }
+  function staffName(id) { const s = report.staff.find(x => x.id === id) || ov.staff.find(x => x.id === id); return s ? s.name : 'Unknown'; }
+  function reportRows() {
+    const t = today(), now = nowMs(), groups = new Map();
+    for (const e of report.events) {
+      if (report.person !== 'all' && e.staff_id !== report.person) continue;
+      const k = e.staff_id + '|' + dateKey(new Date(e.at));
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(e);
+    }
+    const rows = [];
+    for (const [k, ev] of groups) {
+      const [sid, date] = k.split('|');
+      const sum = summarize(ev, date === t ? now : null);
+      let status = 'Complete', cls = 'off';
+      if (sum.state !== 'off') { if (date === t) { status = STATUS[sum.state]; cls = sum.state; } else { status = 'Not checked out'; cls = 'warn'; } }
+      rows.push({sid, date, name: staffName(sid), ev, sum, status, cls, edited: ev.some(e => e.source === 'manual')});
+    }
+    return rows;
+  }
+  function totalsOf(rows) {
+    const map = new Map();
+    for (const r of rows) {
+      const t = map.get(r.sid) || {name: r.name, work: 0, brk: 0, days: 0, open: 0};
+      t.work += r.sum.work; t.brk += r.sum.brk; t.days++; if (r.cls === 'warn') t.open++;
+      map.set(r.sid, t);
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }
+  function personLabel() { return report.person === 'all' ? 'Everyone' : staffName(report.person); }
+  function renderReports() {
+    const sel = $('#r-person');
+    const known = new Map();
+    ov.staff.forEach(s => known.set(s.id, s.name + (s.active ? '' : ' (removed)')));
+    report.staff.forEach(s => { if (!known.has(s.id)) known.set(s.id, s.name + (s.active ? '' : ' (removed)')); });
+    const opts = [h('option', {value: 'all', text: 'Everyone'})];
+    [...known.entries()].sort((a, b) => a[1].localeCompare(b[1])).forEach(([id, n]) => opts.push(h('option', {value: id, text: n})));
+    sel.replaceChildren(...opts);
+    if (report.person !== 'all' && !known.has(report.person)) report.person = 'all';
+    sel.value = report.person;
+
+    const body = $('#r-body'), totalsBox = $('#r-totals');
+    if (!report.from) { body.replaceChildren(); totalsBox.replaceChildren(); return; }
+    const days = Math.round((keyToDate(report.to) - keyToDate(report.from)) / 864e5) + 1;
+    $('#r-note').textContent = `${dayShort(report.from)} to ${dayShort(report.to)} · ${days} day${days === 1 ? '' : 's'} · ${personLabel()}`;
+    if (report.loading && !report.loaded) { body.replaceChildren(h('tr', null, h('td', {colspan: 8, class: 'dim', text: 'Loading…'}))); totalsBox.replaceChildren(); return; }
+
+    const rows = reportRows().sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name));
+    const totals = totalsOf(rows);
+    const cards = totals.map(t => h('div', {class: 'total'}, h('span', {text: t.name}), h('b', {text: fmtDur(t.work)}),
+      h('small', {text: `${t.days} day${t.days === 1 ? '' : 's'} · ${hoursNum(t.work).toFixed(2)} h`}),
+      t.open ? h('small', {class: 'warn', text: `${t.open} not checked out`}) : null));
+    if (totals.length > 1) {
+      const all = totals.reduce((a, t) => ({work: a.work + t.work, days: a.days + t.days}), {work: 0, days: 0});
+      cards.unshift(h('div', {class: 'total all'}, h('span', {text: 'All staff'}), h('b', {text: fmtDur(all.work)}), h('small', {text: `${all.days} shifts · ${hoursNum(all.work).toFixed(2)} h`})));
+    }
+    totalsBox.replaceChildren(...cards);
+    if (!rows.length) { body.replaceChildren(h('tr', null, h('td', {colspan: 8, class: 'dim', text: 'No hours recorded in this period.'}))); return; }
+    body.replaceChildren(...rows.map(r => h('tr', null,
+      h('td', {text: dayShort(r.date)}),
+      h('td', null, r.name, r.edited ? h('span', {class: 'tag', text: 'edited'}) : null),
+      h('td', {text: r.sum.firstIn ? fmtTime(r.sum.firstIn) : '–'}),
+      h('td', {text: r.sum.state === 'off' && r.sum.lastOut ? fmtTime(r.sum.lastOut) : '–'}),
+      h('td', {class: 'num', text: r.sum.brk ? fmtDur(r.sum.brk) : '–'}),
+      h('td', {class: 'num'}, h('strong', {text: fmtDur(r.sum.work)})),
+      h('td', null, h('span', {class: 'pill ' + r.cls, text: r.status})),
+      h('td', {class: 'num'}, h('button', {class: 'btn sm ghost', type: 'button', text: 'Edit', onclick: () => openEditor(r.date, r.sid, r.name, r.ev)})))));
+  }
+  $('#r-period').addEventListener('change', () => { if ($('#r-period').value !== 'custom') { applyPeriod(); loadReport(); } });
+  ['#r-from', '#r-to'].forEach(s => $(s).addEventListener('change', () => { $('#r-period').value = 'custom'; loadReport(); }));
+  $('#r-person').addEventListener('change', (e) => { report.person = e.target.value; renderReports(); });
+
+  // ---------- day editor ----------
+  function openEditor(date, staffId, name, events) {
+    const rows = events.map(e => ({t: e.t, time: fmtTime(e.at), orig: e}));
+    const list = h('div', {class: 'ev-list'});
+    const err = h('p', {class: 'err'});
+    let delArmed = false;
+    const draw = () => {
+      if (!rows.length) { list.replaceChildren(h('p', {class: 'dim', style: 'margin:0', text: 'No events. Add the check-in first.'})); return; }
+      list.replaceChildren(...rows.map((r, i) => h('div', {class: 'ev-row'},
+        h('select', {class: 'input', 'aria-label': 'Event', onchange: (e) => { r.t = e.target.value; }},
+          Object.entries(LABEL).map(([k, v]) => h('option', {value: k, selected: r.t === k, text: v}))),
+        h('input', {class: 'input', type: 'time', step: '60', value: r.time, 'aria-label': 'Time', oninput: (e) => { r.time = e.target.value; }}),
+        h('button', {class: 'btn sm ghost', type: 'button', 'aria-label': 'Remove event', text: '✕', onclick: () => { rows.splice(i, 1); draw(); }}))));
+    };
+    draw();
+    const addBtn = h('button', {class: 'btn sm', type: 'button', text: 'Add event', onclick: () => {
+      const last = rows[rows.length - 1];
+      const st = last ? ({in: 'in', back: 'in', break: 'break', out: 'off'})[last.t] : 'off';
+      rows.push({t: st === 'off' ? 'in' : st === 'break' ? 'back' : 'out', time: last ? last.time : '09:00'});
+      draw();
+    }});
+    const send = async (clean) => {
+      const r = await arpc('clockline_admin_save_day', {p_staff: staffId,
+        p_from: keyToDate(date).toISOString(), p_to: keyToDate(addDays(date, 1)).toISOString(),
+        p_events: clean.map(e => ({type: e.t, at: new Date(e.at).toISOString()}))});
+      if (!r.ok) {
+        if (r.error === 'bad_sequence' || r.error === 'bad_events') { err.textContent = 'These events don’t make a valid day. Check the order and times.'; return false; }
+        adminErr(r, err); return false;
+      }
+      return true;
+    };
+    const save = async () => {
+      err.textContent = '';
+      const evs = [];
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        if (!/^\d{2}:\d{2}$/.test(r.time || '')) { err.textContent = 'Every event needs a time.'; return; }
+        const at = (r.orig && r.orig.t === r.t && fmtTime(r.orig.at) === r.time) ? r.orig.at : new Date(`${date}T${r.time}:00`).getTime();
+        evs.push({t: r.t, at, i});
+      }
+      evs.sort((a, b) => a.at - b.at || a.i - b.i);
+      const clean = evs.map(({t, at}) => ({t, at}));
+      const bad = checkSequence(clean);
+      if (bad) { err.textContent = bad; return; }
+      if (await send(clean)) { closeModal(); toast('Day saved'); loadReport(); loadOverview(); }
+    };
+    const delBtn = h('button', {class: 'btn danger', type: 'button', text: 'Clear day', onclick: async () => {
+      if (!delArmed) { delArmed = true; delBtn.textContent = 'Tap again to clear'; delBtn.classList.add('armed'); return; }
+      if (await send([])) { closeModal(); toast('Day cleared'); loadReport(); loadOverview(); }
+    }});
+    openModal(h('div', {class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Edit day'},
+      h('h2', {text: name}), h('p', {class: 'sub', text: dayLong(date)}),
+      list, h('div', null, addBtn), err,
+      h('div', {class: 'modal-foot'}, events.length ? delBtn : null, h('span', {class: 'spacer'}),
+        h('button', {class: 'btn', type: 'button', text: 'Cancel', onclick: closeModal}), h('button', {class: 'btn primary', type: 'button', text: 'Save', onclick: save}))));
+  }
+  $('#r-add').addEventListener('click', () => {
+    const people = new Map();
+    ov.staff.forEach(s => people.set(s.id, s.name + (s.active ? '' : ' (removed)')));
+    if (!people.size) { toast('Add people in Team & PINs first.'); return; }
+    const sel = h('select', {class: 'input', id: 'ad-person'}, [...people.entries()].sort((a, b) => a[1].localeCompare(b[1])).map(([id, n]) => h('option', {value: id, text: n})));
+    if (report.person !== 'all') sel.value = report.person;
+    const date = h('input', {class: 'input', type: 'date', id: 'ad-date', value: today(), max: today()});
+    const err = h('p', {class: 'err'});
+    const next = async () => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date.value)) { err.textContent = 'Pick a date.'; return; }
+      const d = date.value, sid = sel.value;
+      const r = await arpc('clockline_admin_range', {p_from: keyToDate(d).toISOString(), p_to: keyToDate(addDays(d, 1)).toISOString(), p_staff: sid});
+      if (!r.ok) { adminErr(r, err); return; }
+      openEditor(d, sid, (people.get(sid) || '').replace(/ \(removed\)$/, ''), r.events.map(toEv));
+    };
+    openModal(h('div', {class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Add or fix a day'},
+      h('h2', {text: 'Add or fix a day'}), h('p', {class: 'sub', text: 'For someone who forgot to check in or out.'}),
+      h('div', {class: 'field'}, h('label', {for: 'ad-person', text: 'Employee'}), sel),
+      h('div', {class: 'field'}, h('label', {for: 'ad-date', text: 'Date'}), date), err,
+      h('div', {class: 'modal-foot'}, h('span', {class: 'spacer'}), h('button', {class: 'btn', type: 'button', text: 'Cancel', onclick: closeModal}), h('button', {class: 'btn primary', type: 'button', text: 'Continue', onclick: next}))));
+  });
+
+  // ---------- export ----------
+  function exportData() {
+    const rows = reportRows().sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+    const totals = totalsOf(rows);
+    const daily = [['Date', 'Day', 'Employee', 'First in', 'Last out', 'Break (h:mm)', 'Worked (h:mm)', 'Worked (hours)', 'Status', 'Edited by admin']];
+    for (const r of rows) daily.push([r.date, dayName(r.date), r.name, r.sum.firstIn ? fmtTime(r.sum.firstIn) : '', r.sum.state === 'off' && r.sum.lastOut ? fmtTime(r.sum.lastOut) : '', fmtHM(r.sum.brk), fmtHM(r.sum.work), hoursNum(r.sum.work), r.status, r.edited ? 'Yes' : '']);
+    const tot = [['Employee', 'Days worked', 'Worked (h:mm)', 'Worked (hours)', 'Break (h:mm)', 'Days not checked out']];
+    let gw = 0, gd = 0, gb = 0, go = 0;
+    for (const t of totals) { tot.push([t.name, t.days, fmtHM(t.work), hoursNum(t.work), fmtHM(t.brk), t.open]); gw += t.work; gd += t.days; gb += t.brk; go += t.open; }
+    if (totals.length > 1) tot.push(['TOTAL', gd, fmtHM(gw), hoursNum(gw), fmtHM(gb), go]);
+    const evs = [['Date', 'Time', 'Employee', 'Event', 'Source']];
+    const flat = [];
+    for (const r of rows) for (const e of r.ev) flat.push({at: e.at, row: [r.date, fmtTime(e.at), r.name, LABEL[e.t], e.source === 'manual' ? 'Admin edit' : 'Clock']});
+    flat.sort((a, b) => a.at - b.at).forEach(f => evs.push(f.row));
+    return {rows, daily, tot, evs};
+  }
+  const fileBase = () => `clockline_${report.from}_to_${report.to}_${slug(personLabel())}`;
+  function download(name, blob) {
+    const url = URL.createObjectURL(blob);
+    const a = h('a', {href: url, download: name});
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+  function exportReady() { if (!report.loaded || report.loading) { toast('Wait for the report to finish loading.'); return false; } return true; }
+  $('#r-csv').addEventListener('click', () => {
+    if (!exportReady()) return;
+    const {rows, daily} = exportData();
+    if (!rows.length) { toast('Nothing to export in this period.'); return; }
+    const cell = (v) => { const s = String(v ?? ''); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    download(fileBase() + '.csv', new Blob(['﻿' + daily.map(r => r.map(cell).join(',')).join('\r\n') + '\r\n'], {type: 'text/csv;charset=utf-8'}));
+  });
+  $('#r-xlsx').addEventListener('click', () => {
+    if (!exportReady()) return;
+    if (!window.XLSX) { toast('Excel export is still loading. Try again in a moment, or use CSV.'); return; }
+    const {rows, daily, tot, evs} = exportData();
+    if (!rows.length) { toast('Nothing to export in this period.'); return; }
+    const wb = XLSX.utils.book_new();
+    const sheet = (aoa, widths) => { const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = widths.map(w => ({wch: w})); ws['!autofilter'] = {ref: XLSX.utils.encode_range({s: {r: 0, c: 0}, e: {r: aoa.length - 1, c: aoa[0].length - 1}})}; return ws; };
+    XLSX.utils.book_append_sheet(wb, sheet(tot, [20, 12, 14, 14, 13, 20]), 'Totals');
+    XLSX.utils.book_append_sheet(wb, sheet(daily, [12, 11, 20, 10, 10, 13, 14, 14, 16, 15]), 'Daily');
+    XLSX.utils.book_append_sheet(wb, sheet(evs, [12, 8, 20, 13, 12]), 'Events');
+    const info = XLSX.utils.aoa_to_sheet([['Clockline export'], ['Period', `${report.from} to ${report.to}`], ['Employee', personLabel()], ['Generated', new Date().toLocaleString('en-GB')], ['Note', 'Worked hours exclude breaks. "Not checked out" days only count time up to the last recorded event.']]);
+    info['!cols'] = [{wch: 12}, {wch: 70}];
+    XLSX.utils.book_append_sheet(wb, info, 'About');
+    download(fileBase() + '.xlsx', new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  });
+
+  // ---------- team & PINs ----------
+  function randomPin() {
+    const a = new Uint32Array(1);
+    for (;;) {
+      crypto.getRandomValues(a);
+      const p = String(a[0] % 10000).padStart(4, '0');
+      if (/^(\d)\1{3}$/.test(p) || '0123456789'.includes(p) || '9876543210'.includes(p)) continue;
+      return p;
+    }
+  }
+  function renderTeam() {
+    const list = $('#team-list');
+    const active = ov.staff.filter(s => s.active);
+    if (!ov.loaded) { list.replaceChildren(h('div', {class: 'row dim', text: 'Loading…'})); return; }
+    if (!active.length) { list.replaceChildren(h('div', {class: 'row dim', text: 'No one yet. Add the first person above.'})); return; }
+    list.replaceChildren(...active.map(s => {
+      const armed = confirmRemove === s.id;
+      return h('div', {class: 'row'},
+        h('span', {class: 'avatar', 'aria-hidden': 'true', text: initials(s.name)}),
+        h('span', {class: 'name'}, s.name, s.has_pin ? h('span', {class: 'tag', text: 'PIN set'}) : h('span', {class: 'tag warn', text: 'No PIN, can’t clock in'})),
+        h('span', {class: 'acts'},
+          h('button', {class: 'btn sm' + (s.has_pin ? '' : ' primary'), type: 'button', text: s.has_pin ? 'New PIN' : 'Set PIN', onclick: () => openPin(s)}),
+          h('button', {class: 'btn sm danger' + (armed ? ' armed' : ''), type: 'button', text: armed ? 'Tap to confirm' : 'Remove', onclick: () => removeStaff(s)})));
+    }));
+  }
+  function openPin(s) {
+    const inp = h('input', {class: 'input', id: 'pin-new', inputmode: 'numeric', maxlength: '8', autocomplete: 'off', value: randomPin()});
+    const err = h('p', {class: 'err'});
+    const save = async () => {
+      const p = inp.value.trim();
+      if (!/^\d{4,8}$/.test(p)) { err.textContent = 'Use 4 to 8 digits.'; return; }
+      const r = await arpc('clockline_admin_set_pin', {p_staff: s.id, p_pin: p});
+      if (!r.ok) { if (r.error === 'pin_taken') { err.textContent = 'Someone else already has that PIN. Pick another.'; inp.value = randomPin(); return; } adminErr(r, err); return; }
+      showPinSaved(s.name, p);
+      loadOverview();
+    };
+    openModal(h('div', {class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Set PIN'},
+      h('h2', {text: `PIN for ${s.name}`}),
+      h('p', {class: 'sub', text: s.has_pin ? 'Their old PIN stops working as soon as you save.' : 'They’ll type this on the clock every time.'}),
+      h('div', {class: 'field'}, h('label', {for: 'pin-new', text: 'PIN (4 to 8 digits)'}),
+        h('div', {class: 'inline'}, inp, h('button', {class: 'btn', type: 'button', text: 'Generate', onclick: () => { inp.value = randomPin(); err.textContent = ''; }}))),
+      err,
+      h('div', {class: 'modal-foot'}, h('span', {class: 'spacer'}), h('button', {class: 'btn', type: 'button', text: 'Cancel', onclick: closeModal}), h('button', {class: 'btn primary', type: 'button', text: 'Save PIN', onclick: save}))));
+  }
+  function showPinSaved(name, pin) {
+    openModal(h('div', {class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'PIN saved'},
+      h('h2', {text: `${name}’s PIN`}), h('p', {class: 'sub', text: 'Give this to them now. It can’t be shown again, only replaced.'}),
+      h('div', {class: 'pinshow', text: pin}),
+      h('div', {class: 'modal-foot'}, h('span', {class: 'spacer'}), h('button', {class: 'btn primary', type: 'button', text: 'Done', onclick: closeModal}))));
+  }
+  $('#add-gen').addEventListener('click', () => { $('#add-pin').value = randomPin(); });
+  $('#add-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = $('#add-err');
+    const name = $('#add-name').value.trim().replace(/\s+/g, ' ');
+    const pin = $('#add-pin').value.trim();
+    err.textContent = '';
+    if (!name) { err.textContent = 'Type a name.'; return; }
+    if (pin && !/^\d{4,8}$/.test(pin)) { err.textContent = 'PINs are 4 to 8 digits. Leave it empty to set it later.'; return; }
+    const r = await arpc('clockline_admin_add_staff', {p_name: name, p_pin: pin || null});
+    if (!r.ok) {
+      err.textContent = r.error === 'duplicate' ? `${name} is already on the team.` : r.error === 'pin_taken' ? 'Someone else already has that PIN.' : r.error === 'bad_name' ? 'Names can be up to 40 characters.' : '';
+      if (!err.textContent) adminErr(r, err);
+      return;
+    }
+    $('#add-name').value = ''; $('#add-pin').value = '';
+    if (pin) showPinSaved(name, pin); else toast(r.restored ? `${name} is back on the team, with their history` : `${name} added. Set a PIN so they can clock in.`);
+    loadOverview();
+  });
+  async function removeStaff(s) {
+    if (confirmRemove !== s.id) {
+      confirmRemove = s.id; clearTimeout(confirmTimer);
+      confirmTimer = setTimeout(() => { confirmRemove = null; renderTeam(); }, 4000);
+      renderTeam(); return;
+    }
+    confirmRemove = null; clearTimeout(confirmTimer);
+    const r = await arpc('clockline_admin_remove_staff', {p_id: s.id});
+    if (!r.ok) { adminErr(r); return; }
+    toast(`${s.name} removed. Their PIN no longer works.`); loadOverview();
+  }
+
+  // ---------- settings ----------
+  $('#f-pass').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = $('#p-msg'); msg.className = 'err'; msg.textContent = '';
+    const o = $('#p-old').value, n1 = $('#p-new1').value, n2 = $('#p-new2').value;
+    if (n1.length < 8) { msg.textContent = 'Use at least 8 characters.'; return; }
+    if (n1 !== n2) { msg.textContent = 'The new passwords don’t match.'; return; }
+    const r = await arpc('clockline_admin_password', {p_old: o, p_new: n1});
+    if (!r.ok) { if (r.error === 'bad_old') { msg.textContent = 'The current password is wrong.'; return; } adminErr(r, msg); return; }
+    ['#p-old', '#p-new1', '#p-new2'].forEach(s => { $(s).value = ''; });
+    msg.className = 'ok'; msg.textContent = 'Password changed.';
+  });
+
+  // =====================================================================
+  // ROUTING & CLOCK
+  // =====================================================================
+  let route = 'kiosk';
+  function applyRoute() {
+    closeModal();
+    if (location.hash === '#admin') {
+      route = 'admin';
+      if (token) startAdmin(); else showLogin();
+    } else {
+      route = 'kiosk';
+      clearInterval(ovTimer);
+      // leaving admin for the clock always signs out, so a shared device never stays unlocked
+      if (token) { const t = token; token = null; ss.del(TOKEN_KEY); rpc('clockline_admin_logout', {p_token: t}); }
+      $('#login').hidden = true; $('#admin').hidden = true; $('#kiosk').hidden = false;
+      kReset();
+    }
+  }
+  window.addEventListener('hashchange', applyRoute);
+
+  function tick() {
+    const now = new Date(Date.now() + ov.offset);
+    const c = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const d = now.toLocaleDateString('en-GB', {weekday: 'long', day: 'numeric', month: 'long'});
+    document.querySelectorAll('[data-clock]').forEach(el => { el.textContent = c; });
+    document.querySelectorAll('[data-date]').forEach(el => { el.textContent = d; });
+    if (token && Date.now() - lastActivity > ADMIN_IDLE_MS) {
+      const t = token; sessionLost('Signed out after 15 minutes without use.');
+      rpc('clockline_admin_logout', {p_token: t});
+    }
+  }
+
+  let wakeLock = null;
+  async function keepAwake() { try { if ('wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch {} }
+  document.addEventListener('pointerdown', keepAwake);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { wakeLock = null; if (route === 'admin' && token) loadOverview(); } });
+
+  buildKeypad();
+  setInterval(tick, 1000); tick();
+  setInterval(() => { if (route === 'admin' && tab === 'now') renderNow(); }, 30000);
+  applyRoute();
+})();
+</script>
+</body>
+</html>
